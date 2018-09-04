@@ -1,25 +1,25 @@
 package ccmviewer.controller;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 
 @RestController
 public class DirController {
 
     private static final String BASE = "/data/ng/ccm/";
+    private static final String pkgName = "com.ruckuswireless.scg.protobuf.ccm";
 
     @RequestMapping("/")
     public String path() {
@@ -43,6 +43,14 @@ public class DirController {
             json.add("paths", array);
             json.addProperty("isFile", true);
             return json.toString();
+        } else if (StringUtils.endsWithIgnoreCase(file.getPath(), ".gpb")) {
+            JsonObject json = new JsonObject();
+            JsonArray array = new JsonArray();
+            array.add(file.getPath());
+            json.add("paths", array);
+            json.addProperty("isFile", true);
+            json.addProperty("content", parse(file));
+            return json.toString();
         } else {
             JsonObject json = new JsonObject();
             JsonArray array = new JsonArray();
@@ -51,6 +59,19 @@ public class DirController {
             json.addProperty("isFile", true);
             json.addProperty("content", toString(file));
             return json.toString();
+        }
+    }
+
+    private static String parse(File file) {
+        try {
+            String entityName = StringUtils.substringBefore(file.getName(),".gpb");
+            String clsName = pkgName + "." + entityName + "$Ccm" + entityName;
+            Method m = Class.forName(clsName).getMethod("parseFrom", byte[].class);
+            String s = String.valueOf(m.invoke(null, FileUtils.readFileToByteArray(file)));
+            return s;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ex.getMessage();
         }
     }
 
